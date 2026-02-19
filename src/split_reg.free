@@ -1,0 +1,316 @@
+// SPLIT_REG: Pattern-Based Splitting (패턴 분할)
+// Split strings by complex patterns
+// Philosophy: "구조화" - Structure from chaos (비정형 텍스트 구조화)
+
+// ============ PATTERN-BASED SPLITTING ============
+
+// split_by_whitespace: Split by any whitespace
+fn split_by_whitespace(text: str) -> [str; 1000] {
+  let mut result: [str; 1000] = []
+  let mut count: u64 = 0
+  let mut current: str = ""
+
+  for i in 0..len(text) {
+    let ch: char = text.char_at(i)
+
+    if is_whitespace(ch) {
+      if len(current) > 0 {
+        result[count as usize] = current
+        count = count + 1
+        current = ""
+      }
+    } else {
+      current = current + ch
+    }
+  }
+
+  if len(current) > 0 {
+    result[count as usize] = current
+  }
+
+  result
+}
+
+// split_by_multiple_delimiters: Split by multiple delimiters
+fn split_by_multiple_delimiters(text: str, delimiters: str) -> [str; 1000] {
+  let mut result: [str; 1000] = []
+  let mut count: u64 = 0
+  let mut current: str = ""
+
+  for i in 0..len(text) {
+    let ch: char = text.char_at(i)
+
+    // Check if character is a delimiter
+    let mut is_delim: bool = false
+    for j in 0..len(delimiters) {
+      if ch == delimiters.char_at(j) {
+        is_delim = true
+        break
+      }
+    }
+
+    if is_delim {
+      if len(current) > 0 {
+        result[count as usize] = current
+        count = count + 1
+        current = ""
+      }
+    } else {
+      current = current + ch
+    }
+  }
+
+  if len(current) > 0 {
+    result[count as usize] = current
+  }
+
+  result
+}
+
+// split_by_pattern_sequence: Split by repeated patterns
+fn split_by_pattern_sequence(text: str, pattern: str) -> [str; 1000] {
+  let mut result: [str; 1000] = []
+  let mut count: u64 = 0
+  let mut current: str = ""
+  let mut i: u64 = 0
+
+  while i < len(text) {
+    // Check if pattern matches at position i
+    let mut matches: bool = false
+    if i + len(pattern) <= len(text) {
+      matches = true
+      for j in 0..len(pattern) {
+        if text.char_at(i + j) != pattern.char_at(j) {
+          matches = false
+          break
+        }
+      }
+    }
+
+    if matches {
+      if len(current) > 0 {
+        result[count as usize] = current
+        count = count + 1
+        current = ""
+      }
+      i = i + len(pattern)
+    } else {
+      current = current + text.substring(i as usize, i as usize + 1)
+      i = i + 1
+    }
+  }
+
+  if len(current) > 0 {
+    result[count as usize] = current
+  }
+
+  result
+}
+
+// ============ CSV/TSV PARSING ============
+
+// split_csv: Split CSV line (handle quoted fields)
+fn split_csv(line: str) -> [str; 100] {
+  let mut result: [str; 100] = []
+  let mut count: u64 = 0
+  let mut current: str = ""
+  let mut in_quotes: bool = false
+
+  for i in 0..len(line) {
+    let ch: char = line.char_at(i)
+
+    if ch == '"' {
+      in_quotes = !in_quotes
+    } else if ch == ',' && !in_quotes {
+      result[count as usize] = trim(current)
+      count = count + 1
+      current = ""
+    } else {
+      current = current + ch
+    }
+  }
+
+  if len(current) > 0 {
+    result[count as usize] = trim(current)
+  }
+
+  result
+}
+
+// split_tsv: Split TSV (tab-separated values)
+fn split_tsv(line: str) -> [str; 100] {
+  split_by_multiple_delimiters(line, "\t")
+}
+
+// ============ LOG LINE PARSING ============
+
+// split_log_line: Parse structured log line
+fn split_log_line(line: str) -> [str; 20] {
+  let mut result: [str; 20] = []
+
+  // Pattern: [TIMESTAMP] LEVEL MESSAGE
+  let bracket_start: i64 = find(line, "[")
+  let bracket_end: i64 = find_from(line, "]", bracket_start as u64 + 1)
+
+  if bracket_start >= 0 && bracket_end > bracket_start {
+    result[0] = slice(line, bracket_start as u64 + 1, bracket_end as u64)
+
+    let after_bracket: str = trim(slice(line, bracket_end as u64 + 1, len(line)))
+    let space_pos: i64 = find(after_bracket, " ")
+
+    if space_pos > 0 {
+      result[1] = slice(after_bracket, 0, space_pos as u64)
+      result[2] = trim(slice(after_bracket, space_pos as u64 + 1, len(after_bracket)))
+    } else {
+      result[1] = after_bracket
+      result[2] = ""
+    }
+  }
+
+  result
+}
+
+// ============ PATH PARSING ============
+
+// split_path: Split file path by / or \
+fn split_path(path: str) -> [str; 50] {
+  let mut result: [str; 50] = []
+  let mut count: u64 = 0
+  let mut current: str = ""
+
+  for i in 0..len(path) {
+    let ch: char = path.char_at(i)
+
+    if ch == '/' || ch == '\\' {
+      if len(current) > 0 {
+        result[count as usize] = current
+        count = count + 1
+        current = ""
+      }
+    } else {
+      current = current + ch
+    }
+  }
+
+  if len(current) > 0 {
+    result[count as usize] = current
+  }
+
+  result
+}
+
+// ============ URL PARSING ============
+
+// split_url: Parse URL into components
+struct URLComponents {
+  protocol: str,
+  domain: str,
+  path: str,
+  query: str,
+  fragment: str
+}
+
+fn parse_url(url: str) -> URLComponents {
+  let mut protocol: str = ""
+  let mut domain: str = ""
+  let mut path: str = ""
+  let mut query: str = ""
+  let mut fragment: str = ""
+
+  // Extract protocol
+  let protocol_end: i64 = find(url, "://")
+  if protocol_end > 0 {
+    protocol = slice(url, 0, protocol_end as u64)
+    let after_protocol: u64 = protocol_end as u64 + 3
+
+    // Extract domain
+    let path_start: i64 = find_from(url, "/", after_protocol)
+    if path_start >= 0 {
+      domain = slice(url, after_protocol, path_start as u64)
+      let after_domain: u64 = path_start as u64
+
+      // Extract path, query, fragment
+      let query_start: i64 = find_from(url, "?", after_domain)
+      let fragment_start: i64 = find_from(url, "#", after_domain)
+
+      if query_start >= 0 {
+        path = slice(url, after_domain, query_start as u64)
+        if fragment_start > query_start {
+          query = slice(url, query_start as u64 + 1, fragment_start as u64)
+          fragment = slice(url, fragment_start as u64 + 1, len(url))
+        } else {
+          query = slice(url, query_start as u64 + 1, len(url))
+        }
+      } else if fragment_start >= 0 {
+        path = slice(url, after_domain, fragment_start as u64)
+        fragment = slice(url, fragment_start as u64 + 1, len(url))
+      } else {
+        path = slice(url, after_domain, len(url))
+      }
+    } else {
+      domain = slice(url, after_protocol, len(url))
+    }
+  }
+
+  URLComponents {
+    protocol: protocol,
+    domain: domain,
+    path: path,
+    query: query,
+    fragment: fragment
+  }
+}
+
+// ============ COMMAND LINE PARSING ============
+
+// split_command_line: Parse command line with quoted arguments
+fn split_command_line(command: str) -> [str; 50] {
+  let mut result: [str; 50] = []
+  let mut count: u64 = 0
+  let mut current: str = ""
+  let mut in_quotes: bool = false
+
+  for i in 0..len(command) {
+    let ch: char = command.char_at(i)
+
+    if ch == '"' {
+      in_quotes = !in_quotes
+    } else if ch == ' ' && !in_quotes {
+      if len(current) > 0 {
+        result[count as usize] = current
+        count = count + 1
+        current = ""
+      }
+    } else {
+      current = current + ch
+    }
+  }
+
+  if len(current) > 0 {
+    result[count as usize] = current
+  }
+
+  result
+}
+
+// ============ SPLIT STATISTICS ============
+
+struct SplitStats {
+  original_text: str,
+  pattern: str,
+  part_count: u64,
+  empty_parts: u64,
+  max_part_length: u64,
+  min_part_length: u64
+}
+
+fn new_split_stats(text: str, pattern: str, count: u64) -> SplitStats {
+  SplitStats {
+    original_text: text,
+    pattern: pattern,
+    part_count: count,
+    empty_parts: 0,
+    max_part_length: 0,
+    min_part_length: 0
+  }
+}

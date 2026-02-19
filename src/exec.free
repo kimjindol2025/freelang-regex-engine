@@ -1,0 +1,302 @@
+// EXEC: Stateful Pattern Search (패턴 반복 검색)
+// Maintain cursor position for efficient streaming analysis
+// Philosophy: "스트림의 흐름" - Process large files without loading entire content
+
+// ============ PATTERN EXECUTION STATE ============
+
+struct PatternExecState {
+  pattern: str,
+  text: str,
+  cursor: u64,
+  last_match_start: u64,
+  last_match_end: u64,
+  matches_found: u64,
+  is_eof: bool
+}
+
+fn new_exec_state(text: str, pattern: str) -> PatternExecState {
+  PatternExecState {
+    pattern: pattern,
+    text: text,
+    cursor: 0,
+    last_match_start: 0,
+    last_match_end: 0,
+    matches_found: 0,
+    is_eof: false
+  }
+}
+
+// ============ BASIC PATTERN EXECUTION ============
+
+// exec_next: Find next occurrence starting from cursor
+fn exec_next(state: PatternExecState) -> MatchResult {
+  let mut result: MatchResult = new_match_result()
+
+  if state.is_eof || state.cursor >= state.text.length {
+    return result
+  }
+
+  // Search from cursor position
+  for i in state.cursor..(state.text.length - state.pattern.length + 1) {
+    let mut matches: bool = true
+    for j in 0..state.pattern.length {
+      if state.text.char_at(i + j) != state.pattern.char_at(j) {
+        matches = false
+        break
+      }
+    }
+
+    if matches {
+      let matched_text: str = slice(state.text, i, i + state.pattern.length)
+      result.matched = true
+      result.full_match = matched_text
+      result.groups[0] = CaptureGroup {
+        group_id: 0,
+        start: i,
+        end: i + state.pattern.length,
+        content: matched_text
+      }
+      result.group_count = 1
+      return result
+    }
+  }
+
+  result
+}
+
+// exec_all: Find all occurrences and return array of matches
+fn exec_all(text: str, pattern: str) -> [MatchResult; 1000] {
+  let mut results: [MatchResult; 1000] = []
+  let mut count: u64 = 0
+  let mut state: PatternExecState = new_exec_state(text, pattern)
+
+  while !state.is_eof && count < 1000 {
+    let match_result: MatchResult = exec_next(state)
+
+    if match_result.matched {
+      results[count as usize] = match_result
+      count = count + 1
+      state.cursor = match_result.groups[0].end
+      state.matches_found = state.matches_found + 1
+    } else {
+      state.is_eof = true
+    }
+  }
+
+  results
+}
+
+// ============ PATTERN EXECUTION WITH CALLBACKS ============
+
+// exec_with_callback: Execute pattern and call function for each match
+fn exec_with_callback(text: str, pattern: str) -> u64 {
+  let mut count: u64 = 0
+  let mut cursor: u64 = 0
+
+  while cursor < text.length {
+    // Check if pattern matches at cursor position
+    let mut matches: bool = false
+    if cursor + pattern.length <= text.length {
+      matches = true
+      for j in 0..pattern.length {
+        if text.char_at(cursor + j) != pattern.char_at(j) {
+          matches = false
+          break
+        }
+      }
+    }
+
+    if matches {
+      count = count + 1
+      cursor = cursor + pattern.length
+    } else {
+      cursor = cursor + 1
+    }
+  }
+
+  count
+}
+
+// ============ GLOBAL PATTERN EXECUTION ============
+
+// exec_global_replace: Replace all occurrences with replacement pattern
+fn exec_global_replace(text: str, pattern: str, replacement: str) -> str {
+  let mut result: str = ""
+  let mut cursor: u64 = 0
+
+  while cursor < text.length {
+    // Check if pattern matches at cursor position
+    let mut matches: bool = false
+    if cursor + pattern.length <= text.length {
+      matches = true
+      for j in 0..pattern.length {
+        if text.char_at(cursor + j) != pattern.char_at(j) {
+          matches = false
+          break
+        }
+      }
+    }
+
+    if matches {
+      result = result + replacement
+      cursor = cursor + pattern.length
+    } else {
+      result = result + text.substring(cursor as usize, cursor as usize + 1)
+      cursor = cursor + 1
+    }
+  }
+
+  result
+}
+
+// ============ STREAMING ANALYSIS ============
+
+struct StreamAnalysisResult {
+  total_matches: u64,
+  match_positions: [u64; 1000],
+  position_count: u64,
+  first_match_pos: u64,
+  last_match_pos: u64
+}
+
+fn analyze_stream(text: str, pattern: str) -> StreamAnalysisResult {
+  let mut result: StreamAnalysisResult = StreamAnalysisResult {
+    total_matches: 0,
+    match_positions: [],
+    position_count: 0,
+    first_match_pos: 0,
+    last_match_pos: 0
+  }
+
+  let mut cursor: u64 = 0
+  let mut first_found: bool = false
+
+  while cursor < text.length {
+    // Check if pattern matches at cursor position
+    let mut matches: bool = false
+    if cursor + pattern.length <= text.length {
+      matches = true
+      for j in 0..pattern.length {
+        if text.char_at(cursor + j) != pattern.char_at(j) {
+          matches = false
+          break
+        }
+      }
+    }
+
+    if matches {
+      result.total_matches = result.total_matches + 1
+      if !first_found {
+        result.first_match_pos = cursor
+        first_found = true
+      }
+      result.last_match_pos = cursor
+
+      if result.position_count < 1000 {
+        result.match_positions[result.position_count as usize] = cursor
+        result.position_count = result.position_count + 1
+      }
+
+      cursor = cursor + pattern.length
+    } else {
+      cursor = cursor + 1
+    }
+  }
+
+  result
+}
+
+// ============ LINE-BY-LINE PATTERN EXECUTION ============
+
+fn exec_lines(text: str, pattern: str) -> [str; 1000] {
+  let mut results: [str; 1000] = []
+  let mut result_count: u64 = 0
+  let mut current_line: str = ""
+  let mut line_num: u64 = 0
+
+  for i in 0..text.length {
+    let ch: char = text.char_at(i)
+
+    if ch == '\n' {
+      // Check if pattern matches in current line
+      let mut matches: bool = false
+      if current_line.length >= pattern.length {
+        for start in 0..(current_line.length - pattern.length + 1) {
+          let mut line_matches: bool = true
+          for j in 0..pattern.length {
+            if current_line.char_at(start + j) != pattern.char_at(j) {
+              line_matches = false
+              break
+            }
+          }
+          if line_matches {
+            matches = true
+            break
+          }
+        }
+      }
+
+      if matches && result_count < 1000 {
+        results[result_count as usize] = current_line
+        result_count = result_count + 1
+      }
+
+      current_line = ""
+      line_num = line_num + 1
+    } else {
+      current_line = current_line + ch
+    }
+  }
+
+  // Check last line
+  if len(current_line) > 0 {
+    let mut matches: bool = false
+    if current_line.length >= pattern.length {
+      for start in 0..(current_line.length - pattern.length + 1) {
+        let mut line_matches: bool = true
+        for j in 0..pattern.length {
+          if current_line.char_at(start + j) != pattern.char_at(j) {
+            line_matches = false
+            break
+          }
+        }
+        if line_matches {
+          matches = true
+          break
+        }
+      }
+    }
+
+    if matches && result_count < 1000 {
+      results[result_count as usize] = current_line
+    }
+  }
+
+  results
+}
+
+// ============ PATTERN EXECUTION STATISTICS ============
+
+struct ExecStats {
+  pattern: str,
+  text_length: u64,
+  total_matches: u64,
+  search_iterations: u64,
+  efficiency_rate: f64
+}
+
+fn new_exec_stats(pattern: str, text_length: u64, matches: u64) -> ExecStats {
+  let efficiency: f64 = if text_length > 0 {
+    (matches as f64) / (text_length as f64) * 100.0
+  } else {
+    0.0
+  }
+
+  ExecStats {
+    pattern: pattern,
+    text_length: text_length,
+    total_matches: matches,
+    search_iterations: text_length,
+    efficiency_rate: efficiency
+  }
+}

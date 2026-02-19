@@ -1,0 +1,309 @@
+// TEST SUITE: Regex Functions (Phase 8 - Chaos Guardian)
+// Comprehensive testing of test, match, replace_reg, split_reg, exec modules
+
+// ============ TEST: PATTERN EXISTENCE VERIFICATION ============
+
+fn test_literal_matching() {
+  assert(test_literal("hello world", "world"), "Should find substring")
+  assert(!test_literal("hello world", "xyz"), "Should not find missing substring")
+  assert(test_literal("test", "test"), "Should find exact match")
+}
+
+fn test_boundary_patterns() {
+  assert(test_starts("hello world", "hello"), "Should match start")
+  assert(!test_starts("hello world", "world"), "Should not match non-start")
+  assert(test_ends("hello world", "world"), "Should match end")
+  assert(!test_ends("hello world", "hello"), "Should not match non-end")
+}
+
+fn test_character_classes() {
+  assert(is_digit('5'), "Should recognize digit")
+  assert(!is_digit('a'), "Should not recognize non-digit")
+  assert(is_letter('a'), "Should recognize letter")
+  assert(is_whitespace(' '), "Should recognize space")
+  assert(is_alphanumeric('5'), "Should recognize alphanumeric digit")
+  assert(is_word_char('_'), "Should recognize word char underscore")
+}
+
+fn test_pattern_classes() {
+  assert(test_any_digit("abc123"), "Should find any digit")
+  assert(!test_any_digit("abcdef"), "Should not find digit in letter-only")
+  assert(test_any_letter("123a456"), "Should find any letter")
+  assert(test_any_whitespace("a b"), "Should find whitespace")
+}
+
+fn test_email_validation() {
+  assert(test_email_pattern("user@example.com"), "Valid email")
+  assert(!test_email_pattern("userexample.com"), "Missing @")
+  assert(!test_email_pattern("user@example"), "Missing .")
+}
+
+fn test_phone_validation() {
+  assert(test_phone_pattern("555-123-4567"), "Valid phone")
+  assert(!test_phone_pattern("123"), "Too short")
+}
+
+fn test_ipv4_validation() {
+  assert(test_ipv4_pattern("192.168.1.1"), "Valid IP")
+  assert(!test_ipv4_pattern("256.1.1.1"), "Invalid octet")
+}
+
+// ============ TEST: MATCH - PATTERN DATA EXTRACTION ============
+
+fn test_match_literal() {
+  let result: MatchResult = match_literal("hello world", "world")
+  assert(result.matched, "Should match literal")
+  assert(result.full_match == "world", "Should extract correct match")
+}
+
+fn test_match_digits() {
+  let digits: [str; 100] = match_digits("abc123def456")
+  assert(len(digits[0]) > 0, "Should find first digit sequence")
+  assert(digits[0] == "123", "Should extract 123")
+}
+
+fn test_match_emails() {
+  let emails: [str; 100] = match_emails("Contact: john@example.com or jane@test.org")
+  assert(len(emails[0]) > 0, "Should find email")
+}
+
+fn test_match_urls() {
+  let urls: [str; 100] = match_urls("Visit https://example.com and http://test.org")
+  assert(len(urls[0]) > 0, "Should find URL")
+}
+
+fn test_extract_log_entry() {
+  let entry: LogEntry = extract_log_entry("[2026-02-20 10:30:45] ERROR Database connection failed")
+  assert(entry.level == "ERROR", "Should extract log level")
+  assert(len(entry.timestamp) > 0, "Should extract timestamp")
+}
+
+fn test_extract_ip_addresses() {
+  let ips: [str; 100] = extract_ip_addresses("Server at 192.168.1.1 connected from 10.0.0.5")
+  assert(len(ips[0]) > 0, "Should find first IP")
+}
+
+// ============ TEST: REPLACE_REG - PATTERN SUBSTITUTION ============
+
+fn test_replace_literal() {
+  let result: str = replace_literal("hello world hello", "hello", "hi")
+  assert(result == "hi world hi", "Should replace all occurrences")
+}
+
+fn test_mask_digits() {
+  let masked: str = mask_digits("Call me at 555-1234")
+  assert(contains(masked, "*"), "Should mask digits")
+  assert(!contains(masked, "5"), "Should not contain original digit")
+}
+
+fn test_mask_email() {
+  let masked: str = mask_email("john@example.com")
+  assert(contains(masked, "****"), "Should mask email")
+  assert(contains(masked, "example.com"), "Should keep domain")
+}
+
+fn test_mask_phone() {
+  let masked: str = mask_phone("555-123-4567")
+  assert(contains(masked, "*"), "Should mask phone")
+  assert(contains(masked, "4567"), "Should keep last 4 digits")
+}
+
+fn test_mask_credit_card() {
+  let masked: str = mask_credit_card("4532123456789012")
+  assert(contains(masked, "*"), "Should mask card")
+  assert(contains(masked, "9012"), "Should keep last 4")
+}
+
+fn test_sanitize_log() {
+  let log: str = "User 192.168.1.1 logged in as john@example.com"
+  let sanitized: str = sanitize_log(log)
+  assert(contains(sanitized, "*"), "Should mask sensitive data")
+}
+
+// ============ TEST: SPLIT_REG - PATTERN-BASED SPLITTING ============
+
+fn test_split_whitespace() {
+  let parts: [str; 1000] = split_by_whitespace("hello   world  test")
+  assert(len(parts[0]) > 0, "Should split whitespace")
+  assert(parts[0] == "hello", "First part should be 'hello'")
+}
+
+fn test_split_delimiters() {
+  let parts: [str; 1000] = split_by_multiple_delimiters("a,b;c:d", ",;:")
+  assert(len(parts[0]) > 0, "Should split by delimiters")
+}
+
+fn test_split_pattern_sequence() {
+  let parts: [str; 1000] = split_by_pattern_sequence("hello--world--test", "--")
+  assert(len(parts[0]) > 0, "Should split by pattern")
+}
+
+fn test_split_csv() {
+  let parts: [str; 100] = split_csv("John,Doe,\"New York, NY\",25")
+  assert(len(parts[0]) > 0, "Should parse CSV")
+  assert(parts[0] == "John", "Should handle quoted fields")
+}
+
+fn test_split_tsv() {
+  let parts: [str; 100] = split_tsv("col1\tcol2\tcol3")
+  assert(len(parts[0]) > 0, "Should split TSV")
+}
+
+fn test_split_log_line() {
+  let parts: [str; 20] = split_log_line("[2026-02-20 10:30:45] ERROR Database error occurred")
+  assert(len(parts[0]) > 0, "Should parse log line")
+}
+
+fn test_split_path() {
+  let parts: [str; 50] = split_path("/home/user/documents/file.txt")
+  assert(len(parts[0]) > 0, "Should split path")
+}
+
+fn test_parse_url() {
+  let url_parts: URLComponents = parse_url("https://example.com:8080/path?query=1#section")
+  assert(url_parts.protocol == "https", "Should extract protocol")
+  assert(contains(url_parts.domain, "example.com"), "Should extract domain")
+  assert(contains(url_parts.path, "path"), "Should extract path")
+}
+
+fn test_split_command_line() {
+  let args: [str; 50] = split_command_line("program -arg1 \"quoted arg\" -arg2")
+  assert(len(args[0]) > 0, "Should split command")
+}
+
+// ============ TEST: EXEC - STATEFUL PATTERN SEARCH ============
+
+fn test_exec_all() {
+  let matches: [MatchResult; 1000] = exec_all("hello hello world hello", "hello")
+  assert(len(matches[0].full_match) > 0, "Should find matches")
+}
+
+fn test_exec_callback() {
+  let count: u64 = exec_with_callback("aaabbbccc", "bb")
+  assert(count == 1, "Should count pattern occurrences")
+}
+
+fn test_exec_global_replace() {
+  let result: str = exec_global_replace("cat cat dog cat", "cat", "dog")
+  assert(result == "dog dog dog dog", "Should replace all occurrences")
+}
+
+fn test_analyze_stream() {
+  let analysis: StreamAnalysisResult = analyze_stream("test test data test", "test")
+  assert(analysis.total_matches == 3, "Should find all matches")
+  assert(analysis.first_match_pos == 0, "Should find first position")
+}
+
+fn test_exec_lines() {
+  let text: str = "hello\nworld\nhello again\ntest"
+  let results: [str; 1000] = exec_lines(text, "hello")
+  assert(len(results[0]) > 0, "Should find matching lines")
+}
+
+// ============ COMPREHENSIVE INTEGRATION TESTS ============
+
+fn test_email_extraction_and_masking() {
+  // Extract emails
+  let emails: [str; 100] = match_emails("john@example.com and jane@test.org")
+  assert(len(emails[0]) > 0, "Should extract email")
+
+  // Mask email
+  let masked: str = mask_email(emails[0])
+  assert(contains(masked, "****"), "Should mask email")
+}
+
+fn test_log_parsing_and_sanitization() {
+  // Parse log line
+  let text: str = "[2026-02-20 10:30:45] ERROR User from 192.168.1.1 reported issue"
+  let entry: LogEntry = extract_log_entry(text)
+  assert(entry.level == "ERROR", "Should extract level")
+
+  // Sanitize log
+  let sanitized: str = sanitize_log(text)
+  assert(contains(sanitized, "*"), "Should sanitize IPs")
+}
+
+fn test_csv_parsing_with_masking() {
+  // Parse CSV
+  let csv: str = "John,Doe,john@example.com,555-123-4567"
+  let parts: [str; 100] = split_csv(csv)
+  assert(len(parts[0]) > 0, "Should parse CSV")
+
+  // Mask email in part
+  let masked: str = mask_email(parts[2])
+  assert(contains(masked, "****"), "Should mask email")
+}
+
+fn test_url_parsing_with_param_masking() {
+  // Parse URL
+  let url: str = "https://api.example.com/users?api_key=secret123&id=42"
+  let url_parts: URLComponents = parse_url(url)
+  assert(url_parts.protocol == "https", "Should parse protocol")
+
+  // Mask parameter
+  let masked: str = mask_url_param(url, "api_key")
+  assert(contains(masked, "****"), "Should mask parameter")
+}
+
+// ============ HELPER TEST FUNCTIONS ============
+
+fn assert(condition: bool, message: str) {
+  if !condition {
+    println("FAIL: " + message)
+  } else {
+    println("PASS: " + message)
+  }
+}
+
+fn run_all_tests() {
+  println("\n=== TEST: Pattern Existence Verification ===")
+  test_literal_matching()
+  test_boundary_patterns()
+  test_character_classes()
+  test_pattern_classes()
+  test_email_validation()
+  test_phone_validation()
+  test_ipv4_validation()
+
+  println("\n=== TEST: Pattern Data Extraction ===")
+  test_match_literal()
+  test_match_digits()
+  test_match_emails()
+  test_match_urls()
+  test_extract_log_entry()
+  test_extract_ip_addresses()
+
+  println("\n=== TEST: Pattern Substitution ===")
+  test_replace_literal()
+  test_mask_digits()
+  test_mask_email()
+  test_mask_phone()
+  test_mask_credit_card()
+  test_sanitize_log()
+
+  println("\n=== TEST: Pattern-Based Splitting ===")
+  test_split_whitespace()
+  test_split_delimiters()
+  test_split_pattern_sequence()
+  test_split_csv()
+  test_split_tsv()
+  test_split_log_line()
+  test_split_path()
+  test_parse_url()
+  test_split_command_line()
+
+  println("\n=== TEST: Stateful Pattern Search ===")
+  test_exec_all()
+  test_exec_callback()
+  test_exec_global_replace()
+  test_analyze_stream()
+  test_exec_lines()
+
+  println("\n=== INTEGRATION TESTS ===")
+  test_email_extraction_and_masking()
+  test_log_parsing_and_sanitization()
+  test_csv_parsing_with_masking()
+  test_url_parsing_with_param_masking()
+
+  println("\n=== ALL TESTS COMPLETE ===")
+}

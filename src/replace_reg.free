@@ -1,0 +1,313 @@
+// REPLACE_REG: Pattern Substitution (패턴 치환)
+// Replace pattern-matched substrings
+// Philosophy: "마스킹" - Redact sensitive data or transform format
+
+// ============ SIMPLE PATTERN REPLACEMENT ============
+
+// replace_literal: Replace literal pattern occurrences
+fn replace_literal(text: str, pattern: str, replacement: str) -> str {
+  if pattern.length == 0 { return text }
+
+  let mut result: str = ""
+  let mut i: u64 = 0
+
+  while i < text.length {
+    // Check if pattern matches at position i
+    let mut matches: bool = true
+    if i + pattern.length <= text.length {
+      for j in 0..pattern.length {
+        if text.char_at(i + j) != pattern.char_at(j) {
+          matches = false
+          break
+        }
+      }
+    } else {
+      matches = false
+    }
+
+    if matches {
+      result = result + replacement
+      i = i + pattern.length
+    } else {
+      result = result + text.substring(i as usize, i as usize + 1)
+      i = i + 1
+    }
+  }
+
+  result
+}
+
+// ============ DIGIT MASKING ============
+
+// mask_digits: Replace all digits with '*'
+fn mask_digits(text: str) -> str {
+  let mut result: str = ""
+
+  for i in 0..text.length {
+    let ch: char = text.char_at(i)
+    if is_digit(ch) {
+      result = result + "*"
+    } else {
+      result = result + ch
+    }
+  }
+
+  result
+}
+
+// mask_digits_partial: Keep first N, mask rest
+fn mask_digits_partial(text: str, keep_count: u64) -> str {
+  let mut result: str = ""
+  let mut digit_count: u64 = 0
+
+  for i in 0..text.length {
+    let ch: char = text.char_at(i)
+    if is_digit(ch) {
+      if digit_count < keep_count {
+        result = result + ch
+      } else {
+        result = result + "*"
+      }
+      digit_count = digit_count + 1
+    } else {
+      result = result + ch
+    }
+  }
+
+  result
+}
+
+// ============ EMAIL MASKING ============
+
+// mask_email: Hide most of email address
+fn mask_email(email: str) -> str {
+  let at_pos: i64 = find(email, "@")
+  if at_pos <= 0 { return email }
+
+  let first_char: str = slice(email, 0, 1)
+  let domain: str = slice(email, at_pos as u64 + 1, len(email))
+
+  first_char + "****@" + domain
+}
+
+// ============ PHONE MASKING ============
+
+// mask_phone: Hide most of phone number
+fn mask_phone(phone: str) -> str {
+  let digits_only: str = ""
+  let mut digit_positions: [u64; 20] = []
+  let mut pos_count: u64 = 0
+
+  // Extract digit positions
+  for i in 0..len(phone) {
+    let ch: char = phone.char_at(i)
+    if is_digit(ch) {
+      digit_positions[pos_count as usize] = i
+      pos_count = pos_count + 1
+    }
+  }
+
+  // Keep first 3 and last 4, mask middle
+  let mut result: str = ""
+  for i in 0..len(phone) {
+    let ch: char = phone.char_at(i)
+
+    if is_digit(ch) {
+      // Check if this digit should be masked
+      let mut should_mask: bool = true
+
+      // Keep first 3 digits
+      for j in 0..3 {
+        if j < pos_count && digit_positions[j as usize] == i {
+          should_mask = false
+        }
+      }
+
+      // Keep last 4 digits
+      if pos_count > 4 {
+        for j in (pos_count - 4)..pos_count {
+          if digit_positions[j as usize] == i {
+            should_mask = false
+          }
+        }
+      }
+
+      if should_mask {
+        result = result + "*"
+      } else {
+        result = result + ch
+      }
+    } else {
+      result = result + ch
+    }
+  }
+
+  result
+}
+
+// ============ CREDIT CARD MASKING ============
+
+// mask_credit_card: Keep only last 4 digits
+fn mask_credit_card(card: str) -> str {
+  if len(card) < 4 { return card }
+
+  let last_four: str = slice(card, len(card) - 4, len(card))
+  let mut result: str = ""
+
+  for i in 0..(len(card) - 4) {
+    let ch: char = card.char_at(i)
+    if is_digit(ch) {
+      result = result + "*"
+    } else {
+      result = result + ch
+    }
+  }
+
+  result + last_four
+}
+
+// ============ URL PARAMETER MASKING ============
+
+// mask_url_param: Hide query parameter values
+fn mask_url_param(url: str, param_name: str) -> str {
+  // Find param_name=
+  let search: str = param_name + "="
+  let pos: i64 = find(url, search)
+
+  if pos < 0 { return url }
+
+  let before: str = slice(url, 0, pos as u64 + len(search) as u64)
+  let after_start: u64 = pos as u64 + len(search) as u64
+
+  // Find next & or end
+  let mut param_end: u64 = len(url)
+  for i in after_start..len(url) {
+    let ch: char = url.char_at(i)
+    if ch == '&' || ch == '#' {
+      param_end = i
+      break
+    }
+  }
+
+  let after: str = slice(url, param_end, len(url))
+  before + "****" + after
+}
+
+// ============ PII REDACTION ============
+
+// redact_ssn: Mask Social Security Numbers
+fn redact_ssn(text: str) -> str {
+  let mut result: str = ""
+  let mut i: u64 = 0
+
+  while i < len(text) {
+    // Look for XXX-XX-XXXX pattern
+    if i + 10 < len(text) {
+      let potential_ssn: str = slice(text, i, i + 11)
+      if test_ssn_pattern(potential_ssn) {
+        // Replace with ***-**-XXXX
+        let last_four: str = slice(potential_ssn, 7, 11)
+        result = result + "***-**-" + last_four
+        i = i + 11
+        continue
+      }
+    }
+
+    result = result + text.substring(i as usize, i as usize + 1)
+    i = i + 1
+  }
+
+  result
+}
+
+// test_ssn_pattern: Check if text looks like SSN
+fn test_ssn_pattern(text: str) -> bool {
+  if len(text) != 11 { return false }
+  if text.char_at(3) != '-' || text.char_at(5) != '-' { return false }
+
+  for i in 0..3 {
+    if !is_digit(text.char_at(i)) { return false }
+  }
+  for i in 4..5 {
+    if !is_digit(text.char_at(i)) { return false }
+  }
+  for i in 6..11 {
+    if !is_digit(text.char_at(i)) { return false }
+  }
+
+  true
+}
+
+// ============ LOG SANITIZATION ============
+
+// sanitize_log: Remove sensitive data from log entry
+fn sanitize_log(log_line: str) -> str {
+  let mut result: str = log_line
+
+  // Mask IPs
+  let ips: [str; 100] = extract_ip_addresses(log_line)
+  for i in 0..10 {
+    if len(ips[i]) > 0 {
+      result = replace_literal(result, ips[i], "***.***.***.***.***")
+    }
+  }
+
+  // Mask emails
+  let emails: [str; 100] = match_emails(log_line)
+  for i in 0..10 {
+    if len(emails[i]) > 0 {
+      result = replace_literal(result, emails[i], mask_email(emails[i]))
+    }
+  }
+
+  result
+}
+
+// ============ FORMAT TRANSFORMATION ============
+
+// replace_phone_format: Convert phone from one format to another
+fn replace_phone_format(phone: str, format: str) -> str {
+  // Extract digits
+  let mut digits: str = ""
+  for i in 0..len(phone) {
+    let ch: char = phone.char_at(i)
+    if is_digit(ch) {
+      digits = digits + ch
+    }
+  }
+
+  // Apply format
+  if format == "dash" {
+    if len(digits) == 10 {
+      return slice(digits, 0, 3) + "-" + slice(digits, 3, 6) + "-" + slice(digits, 6, 10)
+    }
+  } else if format == "paren" {
+    if len(digits) == 10 {
+      return "(" + slice(digits, 0, 3) + ") " + slice(digits, 3, 6) + "-" + slice(digits, 6, 10)
+    }
+  }
+
+  digits
+}
+
+// ============ REPLACEMENT TRACKING ============
+
+struct ReplaceStats {
+  original_text: str,
+  result_text: str,
+  pattern: str,
+  replacements_made: u64,
+  original_length: u64,
+  result_length: u64
+}
+
+fn new_replace_stats(original: str, result: str, pattern: str, count: u64) -> ReplaceStats {
+  ReplaceStats {
+    original_text: original,
+    result_text: result,
+    pattern: pattern,
+    replacements_made: count,
+    original_length: len(original),
+    result_length: len(result)
+  }
+}

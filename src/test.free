@@ -1,0 +1,225 @@
+// TEST: Pattern Existence Verification (빛의 속도로 판단)
+// Returns true if string matches pattern, false otherwise
+// Philosophy: "존재 증명" - Prove existence without full parsing
+
+// ============ SIMPLE PATTERN MATCHING ============
+
+// test_literal: Exact substring match
+fn test_literal(text: str, pattern: str) -> bool {
+  if pattern.length == 0 { return true }
+  if text.length < pattern.length { return false }
+
+  for i in 0..(text.length - pattern.length + 1) {
+    let mut matches: bool = true
+    for j in 0..pattern.length {
+      if text.char_at(i + j) != pattern.char_at(j) {
+        matches = false
+        break
+      }
+    }
+    if matches { return true }
+  }
+  false
+}
+
+// test_starts: Pattern at beginning
+fn test_starts(text: str, pattern: str) -> bool {
+  if text.length < pattern.length { return false }
+
+  for i in 0..pattern.length {
+    if text.char_at(i) != pattern.char_at(i) {
+      return false
+    }
+  }
+  true
+}
+
+// test_ends: Pattern at end
+fn test_ends(text: str, pattern: str) -> bool {
+  if text.length < pattern.length { return false }
+
+  let offset: u64 = text.length - pattern.length
+
+  for i in 0..pattern.length {
+    if text.char_at(offset + i) != pattern.char_at(i) {
+      return false
+    }
+  }
+  true
+}
+
+// test_contains: Pattern anywhere (simple contains)
+fn test_contains(text: str, pattern: str) -> bool {
+  if pattern.length == 0 { return true }
+
+  for i in 0..text.length {
+    if text.char_at(i) == pattern.char_at(0) {
+      let mut matches: bool = true
+      if i + pattern.length <= text.length {
+        for j in 1..pattern.length {
+          if text.char_at(i + j) != pattern.char_at(j) {
+            matches = false
+            break
+          }
+        }
+        if matches { return true }
+      }
+    }
+  }
+  false
+}
+
+// ============ CHARACTER CLASS MATCHING ============
+
+// test_digit: Check if character is digit
+fn is_digit(ch: char) -> bool {
+  ch >= '0' && ch <= '9'
+}
+
+// test_letter: Check if character is letter
+fn is_letter(ch: char) -> bool {
+  (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+}
+
+// test_whitespace: Check if character is whitespace
+fn is_whitespace(ch: char) -> bool {
+  ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
+}
+
+// test_alphanumeric: Check if character is alphanumeric
+fn is_alphanumeric(ch: char) -> bool {
+  is_digit(ch) || is_letter(ch)
+}
+
+// test_word_char: Check if character is word character (\w)
+fn is_word_char(ch: char) -> bool {
+  is_alphanumeric(ch) || ch == '_'
+}
+
+// ============ PATTERN CLASS MATCHING ============
+
+// test_any_digit: Pattern contains at least one digit
+fn test_any_digit(text: str) -> bool {
+  for i in 0..text.length {
+    if is_digit(text.char_at(i)) {
+      return true
+    }
+  }
+  false
+}
+
+// test_any_letter: Pattern contains at least one letter
+fn test_any_letter(text: str) -> bool {
+  for i in 0..text.length {
+    if is_letter(text.char_at(i)) {
+      return true
+    }
+  }
+  false
+}
+
+// test_any_whitespace: Pattern contains at least one whitespace
+fn test_any_whitespace(text: str) -> bool {
+  for i in 0..text.length {
+    if is_whitespace(text.char_at(i)) {
+      return true
+    }
+  }
+  false
+}
+
+// ============ EMAIL PATTERN TESTING ============
+
+fn test_email_pattern(email: str) -> bool {
+  // Simple email validation: has @ and .
+  if !test_contains(email, "@") { return false }
+  if !test_contains(email, ".") { return false }
+
+  let at_pos: i64 = find(email, "@")
+  if at_pos <= 0 || at_pos as u64 >= email.length - 1 { return false }
+
+  let dot_pos: i64 = find_from(email, ".", at_pos as u64)
+  if dot_pos <= at_pos + 1 { return false }
+
+  true
+}
+
+// test_phone_pattern: Simple phone pattern
+fn test_phone_pattern(phone: str) -> bool {
+  // Pattern: digits and hyphens/parentheses
+  if phone.length < 10 { return false }
+
+  let mut digit_count: u64 = 0
+  for i in 0..phone.length {
+    let ch: char = phone.char_at(i)
+    if is_digit(ch) {
+      digit_count = digit_count + 1
+    } else if ch != '-' && ch != '(' && ch != ')' && ch != ' ' {
+      return false
+    }
+  }
+
+  if digit_count < 10 { return false }
+  true
+}
+
+// test_ipv4_pattern: Simple IPv4 pattern
+fn test_ipv4_pattern(ip: str) -> bool {
+  // Pattern: xxx.xxx.xxx.xxx
+  let parts: [str; 1000] = split(ip, ".")
+
+  if len(parts[0]) == 0 || len(parts[1]) == 0 || len(parts[2]) == 0 || len(parts[3]) == 0 {
+    return false
+  }
+
+  // Each part should be numeric 0-255
+  let num1: i64 = parse_int(parts[0])
+  let num2: i64 = parse_int(parts[1])
+  let num3: i64 = parse_int(parts[2])
+  let num4: i64 = parse_int(parts[3])
+
+  if num1 < 0 || num1 > 255 { return false }
+  if num2 < 0 || num2 > 255 { return false }
+  if num3 < 0 || num3 > 255 { return false }
+  if num4 < 0 || num4 > 255 { return false }
+
+  true
+}
+
+// ============ PATTERN VERIFICATION RESULT ============
+
+struct PatternTestResult {
+  pattern: str,
+  text: str,
+  matches: bool,
+  confidence: f64,
+  execution_ns: u64
+}
+
+fn new_test_result(pattern: str, text: str, matches: bool) -> PatternTestResult {
+  PatternTestResult {
+    pattern: pattern,
+    text: text,
+    matches: matches,
+    confidence: if matches { 100.0 } else { 0.0 },
+    execution_ns: 0
+  }
+}
+
+// Helper: find pattern with offset
+fn find_from(s: str, pattern: str, start: u64) -> i64 {
+  if start >= s.length { return -1 }
+  if pattern.length == 0 { return start as i64 }
+
+  for i in start..(s.length - pattern.length + 1) {
+    let mut matches: bool = true
+    for j in 0..pattern.length {
+      if s.char_at(i + j) != pattern.char_at(j) {
+        matches = false
+        break
+      }
+    }
+    if matches { return i as i64 }
+  }
+  -1
+}
